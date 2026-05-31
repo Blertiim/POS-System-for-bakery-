@@ -1,0 +1,10 @@
+__pycache__/
+*.pyc
+data/*.db
+data/*.db-journal
+node_modules/
+build/
+dist-backend/
+release/
+*.spec
+*.log

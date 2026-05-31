@@ -1,0 +1,53 @@
+{
+  "name": "furra-lumi-pos",
+  "version": "1.0.0",
+  "description": "FURRA LUMI desktop POS application.",
+  "main": "electron/main.js",
+  "author": "FURRA LUMI",
+  "license": "MIT",
+  "private": true,
+  "scripts": {
+    "start": "electron .",
+    "build:backend": "pyinstaller --noconfirm --clean --onefile --name bakery-pos-backend --distpath dist-backend --workpath build/backend --add-data \"app;app\" --add-data \"static;static\" run.py",
+    "dist": "npm run build:backend && electron-builder --win --x64",
+    "pack": "npm run build:backend && electron-builder --win dir --x64"
+  },
+  "build": {
+    "appId": "com.furralumi.pos",
+    "productName": "FURRA LUMI POS",
+    "directories": {
+      "output": "release"
+    },
+    "files": [
+      "electron/**/*",
+      "package.json"
+    ],
+    "extraResources": [
+      {
+        "from": "dist-backend/bakery-pos-backend.exe",
+        "to": "backend/bakery-pos-backend.exe"
+      }
+    ],
+    "win": {
+      "target": [
+        {
+          "target": "nsis",
+          "arch": [
+            "x64"
+          ]
+        }
+      ]
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "FURRA LUMI POS"
+    }
+  },
+  "devDependencies": {
+    "electron": "^42.3.0",
+    "electron-builder": "^26.8.1"
+  }
+}

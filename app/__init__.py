@@ -1,0 +1,2 @@
+"""Bakery POS application package."""
+
