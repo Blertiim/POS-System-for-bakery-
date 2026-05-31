@@ -1,6 +1,6 @@
 {
   "name": "furra-lumi-pos",
-  "version": "1.0.0",
+  "version": "1.0.1",
   "description": "FURRA LUMI desktop POS application.",
   "main": "electron/main.js",
   "author": "FURRA LUMI",
@@ -9,8 +9,8 @@
   "scripts": {
     "start": "electron .",
     "build:backend": "pyinstaller --noconfirm --clean --onefile --name bakery-pos-backend --distpath dist-backend --workpath build/backend --add-data \"app;app\" --add-data \"static;static\" run.py",
-    "dist": "npm run build:backend && electron-builder --win --x64",
-    "pack": "npm run build:backend && electron-builder --win dir --x64"
+    "dist": "npm run build:backend && electron-builder --win --x64 --publish never",
+    "pack": "npm run build:backend && electron-builder --win dir --x64 --publish never"
   },
   "build": {
     "appId": "com.furralumi.pos",
