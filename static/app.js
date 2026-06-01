@@ -193,10 +193,8 @@ function bindEvents() {
 
   els.reportDate.addEventListener("change", loadReport);
   els.salesHistory.addEventListener("click", (event) => {
-    const receiptButton = event.target.closest("[data-sale-receipt]");
     const editButton = event.target.closest("[data-sale-edit]");
     const deleteButton = event.target.closest("[data-sale-delete]");
-    if (receiptButton) showReceipt(Number(receiptButton.dataset.saleReceipt));
     if (editButton) openSaleEditor(Number(editButton.dataset.saleEdit));
     if (deleteButton) removeSale(Number(deleteButton.dataset.saleDelete));
   });
@@ -825,7 +823,6 @@ function renderReport(report, sales) {
             <td>${formatCents(sale.total_cents)}</td>
             <td>
               <button type="button" class="row-action" data-sale-edit="${sale.id}">Edit</button>
-              <button type="button" class="row-action" data-sale-receipt="${sale.id}">Kuponi</button>
               <button type="button" class="row-action danger" data-sale-delete="${sale.id}">Fshi</button>
             </td>
           </tr>

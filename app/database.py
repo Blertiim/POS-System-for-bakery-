@@ -12,7 +12,7 @@ DB_PATH = Path(os.environ.get("BAKERY_POS_DB", DATA_DIR / "bakery_pos.db"))
 
 SEED_CATEGORIES = [
     ("Bukë", 10),
-    ("Pastiçeri", 20),
+    ("Kifle", 20),
     ("Pica", 30),
     ("Pije", 40),
 ]
@@ -25,12 +25,12 @@ SEED_PRODUCTS = [
     ("Bukë", "Simite", 50, 25),
     ("Bukë", "Bukë misri", 110, 60),
     ("Bukë", "Focaccia", 150, 80),
-    ("Pastiçeri", "Kroasant", 120, 65),
-    ("Pastiçeri", "Byrek me djathë", 150, 85),
-    ("Pastiçeri", "Byrek me mish", 180, 105),
-    ("Pastiçeri", "Donut", 100, 50),
-    ("Pastiçeri", "Muffin", 130, 70),
-    ("Pastiçeri", "Kek i vogël", 140, 75),
+    ("Kifle", "Kroasant", 120, 65),
+    ("Kifle", "Byrek me djathë", 150, 85),
+    ("Kifle", "Byrek me mish", 180, 105),
+    ("Kifle", "Donut", 100, 50),
+    ("Kifle", "Muffin", 130, 70),
+    ("Kifle", "Kek i vogël", 140, 75),
     ("Pica", "Picë Margarita", 250, 135),
     ("Pica", "Picë me proshutë", 300, 165),
     ("Pica", "Picë vegjetariane", 280, 150),
@@ -61,6 +61,50 @@ def get_connection() -> Iterator[sqlite3.Connection]:
         raise
     finally:
         connection.close()
+
+
+def migrate_legacy_categories(connection: sqlite3.Connection) -> None:
+    legacy_names = ("Pastiçeri", "Pasti?eri", "PastiÃ§eri")
+    placeholders = ", ".join("?" for _ in legacy_names)
+    legacy = connection.execute(
+        f"SELECT id FROM categories WHERE name IN ({placeholders})",
+        legacy_names,
+    ).fetchone()
+    if legacy is None:
+        return
+
+    target = connection.execute(
+        "SELECT id FROM categories WHERE name = ?",
+        ("Kifle",),
+    ).fetchone()
+    if target is None:
+        connection.execute(
+            """
+            UPDATE categories
+            SET name = ?, updated_at = datetime('now', 'localtime')
+            WHERE id = ?
+            """,
+            ("Kifle", legacy["id"]),
+        )
+        return
+
+    connection.execute(
+        """
+        UPDATE products
+        SET category_id = ?, updated_at = datetime('now', 'localtime')
+        WHERE category_id = ?
+        """,
+        (target["id"], legacy["id"]),
+    )
+    connection.execute(
+        """
+        UPDATE categories
+        SET active = 1, updated_at = datetime('now', 'localtime')
+        WHERE id = ?
+        """,
+        (target["id"],),
+    )
+    connection.execute("DELETE FROM categories WHERE id = ?", (legacy["id"],))
 
 
 def initialize_database() -> None:
@@ -136,6 +180,8 @@ def initialize_database() -> None:
                     (name, sort_order),
                 )
             seeded_default_categories = True
+
+        migrate_legacy_categories(connection)
 
         product_count = connection.execute("SELECT COUNT(*) FROM products").fetchone()[0]
         if product_count == 0 and seeded_default_categories:

@@ -604,7 +604,7 @@ def list_sales(date_text: str | None = None, limit: int = 100) -> list[dict[str,
     if date_text:
         query += " AND date(s.created_at) = date(?)"
         params.append(date_text)
-    query += " GROUP BY s.id ORDER BY s.created_at DESC LIMIT ?"
+    query += " GROUP BY s.id ORDER BY s.id ASC LIMIT ?"
     params.append(limit)
     with get_connection() as connection:
         sales = []
