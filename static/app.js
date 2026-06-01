@@ -16,6 +16,7 @@ const state = {
   order: new Map(),
   selectedLineId: null,
   adminTab: "products",
+  editingSale: null,
 };
 
 const els = {};
@@ -80,6 +81,19 @@ function cacheElements() {
     "report-sale-count",
     "report-revenue",
     "sales-history",
+    "sale-edit-modal",
+    "sale-edit-title",
+    "sale-edit-product",
+    "sale-edit-qty",
+    "sale-edit-add",
+    "sale-edit-lines",
+    "sale-edit-total",
+    "sale-edit-paid",
+    "sale-edit-change",
+    "sale-edit-message",
+    "sale-edit-save",
+    "sale-edit-close",
+    "sale-edit-cancel",
     "receipt-modal",
     "receipt-title",
     "receipt-text",
@@ -180,7 +194,28 @@ function bindEvents() {
   els.reportDate.addEventListener("change", loadReport);
   els.salesHistory.addEventListener("click", (event) => {
     const receiptButton = event.target.closest("[data-sale-receipt]");
+    const editButton = event.target.closest("[data-sale-edit]");
+    const deleteButton = event.target.closest("[data-sale-delete]");
     if (receiptButton) showReceipt(Number(receiptButton.dataset.saleReceipt));
+    if (editButton) openSaleEditor(Number(editButton.dataset.saleEdit));
+    if (deleteButton) removeSale(Number(deleteButton.dataset.saleDelete));
+  });
+
+  els.saleEditAdd.addEventListener("click", addProductToSaleEditor);
+  els.saleEditPaid.addEventListener("input", renderSaleEditor);
+  els.saleEditLines.addEventListener("click", (event) => {
+    const increaseButton = event.target.closest("[data-edit-line-increase]");
+    const decreaseButton = event.target.closest("[data-edit-line-decrease]");
+    const deleteButton = event.target.closest("[data-edit-line-delete]");
+    if (increaseButton) changeSaleEditorLine(Number(increaseButton.dataset.editLineIncrease), 1);
+    if (decreaseButton) changeSaleEditorLine(Number(decreaseButton.dataset.editLineDecrease), -1);
+    if (deleteButton) deleteSaleEditorLine(Number(deleteButton.dataset.editLineDelete));
+  });
+  els.saleEditSave.addEventListener("click", saveEditedSale);
+  els.saleEditClose.addEventListener("click", closeSaleEditor);
+  els.saleEditCancel.addEventListener("click", closeSaleEditor);
+  els.saleEditModal.addEventListener("click", (event) => {
+    if (event.target === els.saleEditModal) closeSaleEditor();
   });
 
   els.closeReceipt.addEventListener("click", closeReceipt);
@@ -555,6 +590,7 @@ function closeReceipt() {
 async function loadAdminData() {
   await loadCatalog(false);
   renderProductSelect();
+  renderSaleProductSelect();
   renderAdminProducts();
   renderAdminCategories();
   await loadReport();
@@ -577,6 +613,20 @@ function renderProductSelect() {
       (category) => `
         <option value="${category.id}">
           ${escapeHtml(category.name)}
+        </option>
+      `,
+    )
+    .join("");
+}
+
+function renderSaleProductSelect() {
+  if (!els.saleEditProduct) return;
+  els.saleEditProduct.innerHTML = state.products
+    .filter((product) => product.active)
+    .map(
+      (product) => `
+        <option value="${product.id}">
+          ${escapeHtml(product.name)} - ${formatCents(product.price_cents)}
         </option>
       `,
     )
@@ -774,12 +824,174 @@ function renderReport(report, sales) {
             <td>${sale.item_count}</td>
             <td>${formatCents(sale.total_cents)}</td>
             <td>
+              <button type="button" class="row-action" data-sale-edit="${sale.id}">Edit</button>
               <button type="button" class="row-action" data-sale-receipt="${sale.id}">Kuponi</button>
+              <button type="button" class="row-action danger" data-sale-delete="${sale.id}">Fshi</button>
             </td>
           </tr>
         `,
       )
       .join("");
+  }
+}
+
+async function openSaleEditor(saleId) {
+  try {
+    const sale = await api(`/api/sales/${saleId}`);
+    state.editingSale = {
+      ...sale,
+      items: sale.items.map((item) => ({ ...item })),
+    };
+    els.saleEditTitle.textContent = `Edit porosinë ${sale.receipt_no}`;
+    els.saleEditPaid.value = centsToInput(sale.amount_received_cents);
+    els.saleEditQty.value = "1";
+    els.saleEditMessage.textContent = "";
+    renderSaleEditor();
+    els.saleEditModal.classList.remove("hidden");
+  } catch (error) {
+    showToast(error.message);
+  }
+}
+
+function closeSaleEditor() {
+  state.editingSale = null;
+  els.saleEditModal.classList.add("hidden");
+}
+
+function addProductToSaleEditor() {
+  if (!state.editingSale) return;
+  const productId = Number(els.saleEditProduct.value);
+  const quantity = Math.max(1, Number(els.saleEditQty.value) || 1);
+  const product = state.products.find((item) => item.id === productId);
+  if (!product) return;
+
+  const existing = state.editingSale.items.find(
+    (item) => Number(item.product_id) === product.id,
+  );
+  if (existing) {
+    existing.quantity += quantity;
+  } else {
+    state.editingSale.items.push({
+      product_id: product.id,
+      product_name: product.name,
+      quantity,
+      unit_price_cents: product.price_cents,
+      line_total_cents: product.price_cents * quantity,
+    });
+  }
+  els.saleEditQty.value = "1";
+  renderSaleEditor();
+}
+
+function changeSaleEditorLine(index, delta) {
+  if (!state.editingSale?.items[index]) return;
+  state.editingSale.items[index].quantity += delta;
+  if (state.editingSale.items[index].quantity <= 0) {
+    state.editingSale.items.splice(index, 1);
+  }
+  renderSaleEditor();
+}
+
+function deleteSaleEditorLine(index) {
+  if (!state.editingSale?.items[index]) return;
+  state.editingSale.items.splice(index, 1);
+  renderSaleEditor();
+}
+
+function renderSaleEditor() {
+  if (!state.editingSale) return;
+  const totalCents = calculateEditedSaleTotal();
+  const paidCents = parseMoneyInput(els.saleEditPaid.value);
+  const changeCents = paidCents - totalCents;
+
+  if (!state.editingSale.items.length) {
+    els.saleEditLines.innerHTML = `
+      <tr><td colspan="5" class="empty-state">Nuk ka artikuj.</td></tr>
+    `;
+  } else {
+    els.saleEditLines.innerHTML = state.editingSale.items
+      .map((item, index) => {
+        const lineTotal = getSaleEditorUnitPrice(item) * item.quantity;
+        item.line_total_cents = lineTotal;
+        return `
+          <tr>
+            <td>${escapeHtml(item.product_name)}</td>
+            <td>${item.quantity}</td>
+            <td>${formatCents(getSaleEditorUnitPrice(item))}</td>
+            <td>${formatCents(lineTotal)}</td>
+            <td class="inline-actions">
+              <button type="button" class="row-action" data-edit-line-increase="${index}">+</button>
+              <button type="button" class="row-action" data-edit-line-decrease="${index}">-</button>
+              <button type="button" class="row-action danger" data-edit-line-delete="${index}">Fshi</button>
+            </td>
+          </tr>
+        `;
+      })
+      .join("");
+  }
+
+  els.saleEditTotal.textContent = formatCents(totalCents);
+  els.saleEditChange.textContent = formatCents(Math.max(0, changeCents));
+  els.saleEditMessage.textContent = paidCents < totalCents ? "Shuma e marre nuk mjafton." : "";
+  els.saleEditMessage.classList.toggle("error", paidCents < totalCents);
+}
+
+function getSaleEditorUnitPrice(item) {
+  return Number(item.unit_price_cents) || 0;
+}
+
+function calculateEditedSaleTotal() {
+  if (!state.editingSale) return 0;
+  return state.editingSale.items.reduce(
+    (sum, item) => sum + getSaleEditorUnitPrice(item) * item.quantity,
+    0,
+  );
+}
+
+async function saveEditedSale() {
+  if (!state.editingSale) return;
+  const totalCents = calculateEditedSaleTotal();
+  const paidCents = parseMoneyInput(els.saleEditPaid.value);
+
+  if (!state.editingSale.items.length) {
+    els.saleEditMessage.textContent = "Porosia nuk mund te ruhet bosh.";
+    els.saleEditMessage.classList.add("error");
+    return;
+  }
+  if (paidCents < totalCents) {
+    els.saleEditMessage.textContent = "Shuma e marre nuk mjafton.";
+    els.saleEditMessage.classList.add("error");
+    return;
+  }
+
+  try {
+    await api(`/api/sales/${state.editingSale.id}`, {
+      method: "PUT",
+      body: JSON.stringify({
+        amount_received: centsToInput(paidCents),
+        items: state.editingSale.items.map((item) => ({
+          product_id: item.product_id,
+          quantity: item.quantity,
+        })),
+      }),
+    });
+    closeSaleEditor();
+    await loadReport();
+    showToast("Porosia u ruajt.");
+  } catch (error) {
+    els.saleEditMessage.textContent = error.message;
+    els.saleEditMessage.classList.add("error");
+  }
+}
+
+async function removeSale(saleId) {
+  if (!window.confirm("A deshironi ta fshini kete porosi?")) return;
+  try {
+    await api(`/api/sales/${saleId}`, { method: "DELETE" });
+    await loadReport();
+    showToast("Porosia u fshi.");
+  } catch (error) {
+    showToast(error.message);
   }
 }
 

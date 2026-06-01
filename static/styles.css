@@ -679,6 +679,12 @@ button {
   color: var(--red-dark);
 }
 
+.inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
 .status-pill {
   display: inline-flex;
   min-width: 74px;
@@ -750,9 +756,62 @@ button {
   box-shadow: var(--shadow);
 }
 
+.sale-edit-modal {
+  width: min(760px, 100%);
+}
+
 .modal-header {
   padding: 14px 16px;
   border-bottom: 1px solid var(--line);
+}
+
+.sale-edit-body {
+  display: grid;
+  gap: 14px;
+  padding: 16px;
+}
+
+.sale-edit-add {
+  display: grid;
+  grid-template-columns: minmax(220px, 1fr) 110px auto;
+  gap: 10px;
+  align-items: end;
+}
+
+.sale-edit-add select,
+.sale-edit-add input,
+.sale-edit-totals input {
+  width: 100%;
+  min-height: 44px;
+  border: 1px solid var(--line);
+  border-radius: 8px;
+  background: white;
+  padding: 0 12px;
+}
+
+.sale-edit-table {
+  min-width: 620px;
+}
+
+.sale-edit-totals {
+  display: grid;
+  grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 10px;
+}
+
+.sale-edit-totals > * {
+  min-width: 0;
+}
+
+.sale-edit-totals div,
+.sale-edit-totals label {
+  display: grid;
+  gap: 6px;
+}
+
+.sale-edit-totals strong {
+  color: var(--green-dark);
+  font-size: 1.35rem;
 }
 
 .receipt-text {
@@ -941,6 +1000,15 @@ button {
   .payment-keypad button {
     min-height: 54px;
     font-size: 1.15rem;
+  }
+
+  .sale-edit-add,
+  .sale-edit-totals {
+    grid-template-columns: 1fr;
+  }
+
+  .sale-edit-body {
+    padding: 12px;
   }
 
   .calculator-display {

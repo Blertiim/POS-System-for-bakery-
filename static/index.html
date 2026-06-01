@@ -303,6 +303,66 @@
       </main>
     </section>
 
+    <div id="sale-edit-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="sale-edit-title">
+      <div class="receipt-modal sale-edit-modal">
+        <div class="modal-header">
+          <h2 id="sale-edit-title">Edit porosine</h2>
+          <button id="sale-edit-close" type="button" class="ghost-button">Mbyll</button>
+        </div>
+
+        <div class="sale-edit-body">
+          <div class="sale-edit-add">
+            <label>
+              <span>Artikulli</span>
+              <select id="sale-edit-product"></select>
+            </label>
+            <label>
+              <span>Sasia</span>
+              <input id="sale-edit-qty" type="number" min="1" step="1" value="1">
+            </label>
+            <button id="sale-edit-add" type="button" class="primary-action">Shto</button>
+          </div>
+
+          <div class="table-wrap">
+            <table class="data-table sale-edit-table">
+              <thead>
+                <tr>
+                  <th>Produkt</th>
+                  <th>Sasia</th>
+                  <th>Cmimi</th>
+                  <th>Totali</th>
+                  <th>Veprime</th>
+                </tr>
+              </thead>
+              <tbody id="sale-edit-lines"></tbody>
+            </table>
+          </div>
+
+          <div class="sale-edit-totals">
+            <div>
+              <span>Totali</span>
+              <strong id="sale-edit-total">€0.00</strong>
+            </div>
+            <label>
+              <span>Shuma e marre</span>
+              <input id="sale-edit-paid" type="number" min="0" step="0.01">
+            </label>
+            <div>
+              <span>Kusuri</span>
+              <strong id="sale-edit-change">€0.00</strong>
+            </div>
+          </div>
+
+          <p id="sale-edit-message" class="payment-message"></p>
+        </div>
+
+        <div class="receipt-actions">
+          <button id="sale-edit-save" type="button" class="primary-action">Ruaj porosine</button>
+          <button id="sale-edit-cancel" type="button" class="ghost-button">Anulo</button>
+        </div>
+      </div>
+    </div>
+
     <div id="receipt-modal" class="modal-backdrop hidden" role="dialog" aria-modal="true" aria-labelledby="receipt-title">
       <div class="receipt-modal">
         <div class="modal-header">

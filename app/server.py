@@ -13,6 +13,7 @@ from .repositories import (
     daily_report,
     delete_category,
     delete_product,
+    delete_sale,
     get_sale,
     list_categories,
     list_products,
@@ -20,6 +21,7 @@ from .repositories import (
     receipt_text,
     update_category,
     update_product,
+    update_sale,
 )
 
 
@@ -115,10 +117,17 @@ class POSRequestHandler(BaseHTTPRequestHandler):
                     self.send_json(create_sale(self.read_json()), status=201)
                     return
 
-            if path.startswith("/api/sales/") and method == "GET":
+            if path.startswith("/api/sales/"):
                 sale_id = self.parse_id(path, "/api/sales/")
-                self.send_json(get_sale(sale_id))
-                return
+                if method == "GET":
+                    self.send_json(get_sale(sale_id))
+                    return
+                if method == "PUT":
+                    self.send_json(update_sale(sale_id, self.read_json()))
+                    return
+                if method == "DELETE":
+                    self.send_json(delete_sale(sale_id))
+                    return
 
             if path == "/api/reports/daily" and method == "GET":
                 date_text = query.get("date", [""])[0]
@@ -205,4 +214,3 @@ def run_server(host: str = "127.0.0.1", port: int = 8000) -> None:
         print("\nServer stopped.")
     finally:
         server.server_close()
-

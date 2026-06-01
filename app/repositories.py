@@ -353,6 +353,53 @@ def delete_product(product_id: int) -> dict[str, Any]:
     return {"deleted": True, "archived": archived}
 
 
+def build_sale_lines(connection, items: list[dict[str, Any]]) -> tuple[list[dict[str, Any]], int, int]:
+    if not items:
+        raise ValidationError("Porosia eshte bosh.")
+
+    sale_lines: list[dict[str, Any]] = []
+    total_cents = 0
+    profit_cents = 0
+    for item in items:
+        try:
+            product_id = int(item.get("product_id"))
+            quantity = int(item.get("quantity"))
+        except (TypeError, ValueError):
+            raise ValidationError("Artikulli ne porosi nuk eshte i vlefshem.")
+        if quantity <= 0:
+            raise ValidationError("Sasia duhet te jete me e madhe se zero.")
+
+        row = connection.execute(
+            """
+            SELECT p.*, c.name AS category_name
+            FROM products p
+            JOIN categories c ON c.id = p.category_id
+            WHERE p.id = ?
+            """,
+            (product_id,),
+        ).fetchone()
+        if row is None:
+            raise NotFoundError("Produkti ne porosi nuk u gjet.")
+
+        line_total_cents = row["price_cents"] * quantity
+        line_profit_cents = (row["price_cents"] - row["cost_cents"]) * quantity
+        total_cents += line_total_cents
+        profit_cents += line_profit_cents
+        sale_lines.append(
+            {
+                "product_id": row["id"],
+                "product_name": row["name"],
+                "quantity": quantity,
+                "unit_price_cents": row["price_cents"],
+                "unit_cost_cents": row["cost_cents"],
+                "line_total_cents": line_total_cents,
+                "line_profit_cents": line_profit_cents,
+            }
+        )
+
+    return sale_lines, total_cents, profit_cents
+
+
 def create_sale(payload: dict[str, Any]) -> dict[str, Any]:
     items = payload.get("items") or []
     if not items:
@@ -457,6 +504,75 @@ def create_sale(payload: dict[str, Any]) -> dict[str, Any]:
             )
 
     return get_sale(sale_id)
+
+
+def update_sale(sale_id: int, payload: dict[str, Any]) -> dict[str, Any]:
+    items = payload.get("items") or []
+    amount_received_value = payload.get("amount_received")
+    with get_connection() as connection:
+        current = connection.execute("SELECT id FROM sales WHERE id = ?", (sale_id,)).fetchone()
+        if current is None:
+            raise NotFoundError("Shitja nuk u gjet.")
+
+        sale_lines, total_cents, profit_cents = build_sale_lines(connection, items)
+        if amount_received_value in (None, ""):
+            amount_received_cents = total_cents
+        else:
+            amount_received_cents = euros_to_cents(amount_received_value, "Shuma e marre")
+
+        if amount_received_cents < total_cents:
+            raise ValidationError("Insufficient amount received.")
+
+        change_due_cents = amount_received_cents - total_cents
+        connection.execute(
+            """
+            UPDATE sales
+            SET total_cents = ?,
+                amount_received_cents = ?,
+                change_due_cents = ?,
+                profit_cents = ?
+            WHERE id = ?
+            """,
+            (
+                total_cents,
+                amount_received_cents,
+                change_due_cents,
+                profit_cents,
+                sale_id,
+            ),
+        )
+        connection.execute("DELETE FROM sale_items WHERE sale_id = ?", (sale_id,))
+
+        for line in sale_lines:
+            connection.execute(
+                """
+                INSERT INTO sale_items
+                    (sale_id, product_id, product_name, quantity,
+                     unit_price_cents, unit_cost_cents, line_total_cents,
+                     line_profit_cents)
+                VALUES (?, ?, ?, ?, ?, ?, ?, ?)
+                """,
+                (
+                    sale_id,
+                    line["product_id"],
+                    line["product_name"],
+                    line["quantity"],
+                    line["unit_price_cents"],
+                    line["unit_cost_cents"],
+                    line["line_total_cents"],
+                    line["line_profit_cents"],
+                ),
+            )
+
+    return get_sale(sale_id)
+
+
+def delete_sale(sale_id: int) -> dict[str, Any]:
+    with get_connection() as connection:
+        cursor = connection.execute("DELETE FROM sales WHERE id = ?", (sale_id,))
+        if cursor.rowcount == 0:
+            raise NotFoundError("Shitja nuk u gjet.")
+    return {"deleted": True}
 
 
 def get_sale(sale_id: int) -> dict[str, Any]:
