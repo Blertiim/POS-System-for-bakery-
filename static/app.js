@@ -251,7 +251,8 @@ async function openCashier() {
   showScreen("cashier");
   try {
     await loadCatalog(false);
-    state.currentCategoryId = state.categories[0]?.id || null;
+    els.productSearch.value = "";
+    state.currentCategoryId = getFirstActiveCategoryId();
     renderCategories();
     renderProducts();
     renderOrder();
@@ -283,8 +284,11 @@ async function loadCatalog(includeInactive) {
 
 function renderCategories() {
   const activeCategories = state.categories.filter((category) => category.active);
-  if (!state.currentCategoryId && activeCategories.length) {
-    state.currentCategoryId = activeCategories[0].id;
+  const selectedIsActive = activeCategories.some(
+    (category) => category.id === state.currentCategoryId,
+  );
+  if (!selectedIsActive) {
+    state.currentCategoryId = activeCategories[0]?.id || null;
   }
   els.categoryTabs.innerHTML = activeCategories
     .map(
@@ -303,7 +307,9 @@ function renderCategories() {
 function renderProducts() {
   const search = els.productSearch.value.trim().toLowerCase();
   const filtered = state.products.filter((product) => {
-    const matchesCategory = search ? true : product.category_id === state.currentCategoryId;
+    const matchesCategory = search || !state.currentCategoryId
+      ? true
+      : product.category_id === state.currentCategoryId;
     const matchesSearch = product.name.toLowerCase().includes(search);
     return product.active && matchesCategory && matchesSearch;
   });
@@ -323,6 +329,10 @@ function renderProducts() {
       `,
     )
     .join("");
+}
+
+function getFirstActiveCategoryId() {
+  return state.categories.find((category) => category.active)?.id || null;
 }
 
 function addToOrder(product) {

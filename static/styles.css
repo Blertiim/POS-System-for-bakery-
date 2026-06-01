@@ -860,6 +860,14 @@ button {
     padding: 10px;
   }
 
+  .products-panel {
+    order: 1;
+  }
+
+  .order-panel {
+    order: 2;
+  }
+
   .panel-heading,
   .catalog-toolbar,
   .payment-box,
