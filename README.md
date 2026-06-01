@@ -78,6 +78,39 @@ git push origin v1.0.0
 
 At the client PC, download the `.exe` from GitHub Releases, run it, and the POS opens as a desktop application.
 
+## Deploy Online Web Version
+
+This project can also run online as a web application through Docker.
+
+Build locally:
+
+```powershell
+docker build -t furra-lumi-pos .
+```
+
+Run locally through Docker:
+
+```powershell
+docker run --rm -p 8000:8000 -v furra-lumi-pos-data:/data furra-lumi-pos
+```
+
+Open:
+
+```text
+http://127.0.0.1:8000
+```
+
+For online hosting, use a Docker-capable host such as Render, Railway, Fly.io, or a VPS. Configure:
+
+- Web service type: Docker
+- Port: `8000`, or let the provider set `PORT`
+- Persistent disk/volume mounted at `/data`
+- Database path: `BAKERY_POS_DB=/data/bakery_pos.db`
+
+Important: if the online host does not provide persistent storage, SQLite data can be lost after redeploys or restarts. For a real client installation, the desktop app is safer because the database stays on the client's PC.
+
+Security note: do not expose the online admin panel publicly with simple demo PINs. Change authentication before using it as a public internet app.
+
 ## Features
 
 - PIN login for cashier and admin roles.
@@ -105,6 +138,7 @@ At the client PC, download the `.exe` from GitHub Releases, run it, and the POS 
 │   └── server.py         # HTTP server, static files, JSON API
 ├── data/
 │   └── bakery_pos.db     # Generated locally on first run
+├── Dockerfile            # Online Docker deployment
 ├── electron/
 │   └── main.js           # Electron desktop app launcher
 ├── static/
