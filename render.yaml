@@ -1,0 +1,13 @@
+services:
+  - type: web
+    name: pos-system-for-bakery
+    runtime: docker
+    plan: starter
+    healthCheckPath: /api/health
+    envVars:
+      - key: BAKERY_POS_DB
+        value: /data/bakery_pos.db
+    disk:
+      name: bakery-pos-data
+      mountPath: /data
+      sizeGB: 1

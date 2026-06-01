@@ -107,7 +107,9 @@ For online hosting, use a Docker-capable host such as Render, Railway, Fly.io, o
 - Persistent disk/volume mounted at `/data`
 - Database path: `BAKERY_POS_DB=/data/bakery_pos.db`
 
-Important: if the online host does not provide persistent storage, SQLite data can be lost after redeploys or restarts. For a real client installation, the desktop app is safer because the database stays on the client's PC.
+The repository includes `render.yaml` for Render Blueprint deployment. It creates a Docker web service with a persistent disk mounted at `/data`, so SQLite writes to `/data/bakery_pos.db`.
+
+Important: if the online host does not provide persistent storage, SQLite data can be lost after redeploys or restarts. On Render, persistent disks are available for paid web services. For a real client installation, the desktop app is safer because the database stays on the client's PC.
 
 Security note: do not expose the online admin panel publicly with simple demo PINs. Change authentication before using it as a public internet app.
 

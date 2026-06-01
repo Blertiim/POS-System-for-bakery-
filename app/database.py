@@ -1,4 +1,6 @@
 from pathlib import Path
+from collections.abc import Iterator
+from contextlib import contextmanager
 import sqlite3
 import os
 
@@ -44,13 +46,21 @@ SEED_PRODUCTS = [
 ]
 
 
-def get_connection() -> sqlite3.Connection:
+@contextmanager
+def get_connection() -> Iterator[sqlite3.Connection]:
     DATA_DIR.mkdir(parents=True, exist_ok=True)
     DB_PATH.parent.mkdir(parents=True, exist_ok=True)
     connection = sqlite3.connect(DB_PATH)
     connection.row_factory = sqlite3.Row
     connection.execute("PRAGMA foreign_keys = ON")
-    return connection
+    try:
+        yield connection
+        connection.commit()
+    except Exception:
+        connection.rollback()
+        raise
+    finally:
+        connection.close()
 
 
 def initialize_database() -> None:
@@ -114,21 +124,21 @@ def initialize_database() -> None:
             """
         )
 
-        for name, sort_order in SEED_CATEGORIES:
-            connection.execute(
-                """
-                INSERT INTO categories (name, sort_order, active)
-                VALUES (?, ?, 1)
-                ON CONFLICT(name) DO UPDATE SET
-                    sort_order = excluded.sort_order,
-                    active = 1,
-                    updated_at = datetime('now', 'localtime')
-                """,
-                (name, sort_order),
-            )
+        category_count = connection.execute("SELECT COUNT(*) FROM categories").fetchone()[0]
+        seeded_default_categories = False
+        if category_count == 0:
+            for name, sort_order in SEED_CATEGORIES:
+                connection.execute(
+                    """
+                    INSERT INTO categories (name, sort_order, active)
+                    VALUES (?, ?, 1)
+                    """,
+                    (name, sort_order),
+                )
+            seeded_default_categories = True
 
         product_count = connection.execute("SELECT COUNT(*) FROM products").fetchone()[0]
-        if product_count == 0:
+        if product_count == 0 and seeded_default_categories:
             category_ids = {
                 row["name"]: row["id"]
                 for row in connection.execute("SELECT id, name FROM categories")
