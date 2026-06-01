@@ -4,7 +4,7 @@ from typing import Any
 from uuid import uuid4
 import sqlite3
 
-from .database import get_connection
+from .database import get_connection, migrate_legacy_categories
 
 
 class AppError(Exception):
@@ -38,6 +38,13 @@ def euros_to_cents(value: Any, field_name: str = "amount") -> int:
 
 def cents_to_euros(cents: int) -> float:
     return cents / 100
+
+
+def normalize_category_name(value: Any) -> str:
+    name = str(value).strip()
+    if name in {"Pastiçeri", "Pasti?eri", "PastiÃ§eri"}:
+        return "Kifle"
+    return name
 
 
 def row_to_category(row: Any) -> dict[str, Any]:
@@ -104,6 +111,7 @@ def list_categories(include_inactive: bool = False) -> list[dict[str, Any]]:
         query += " WHERE active = 1"
     query += " ORDER BY sort_order, name"
     with get_connection() as connection:
+        migrate_legacy_categories(connection)
         return [row_to_category(row) for row in connection.execute(query, params)]
 
 
@@ -113,6 +121,7 @@ def get_category(category_id: int, include_inactive: bool = False) -> dict[str, 
     if not include_inactive:
         query += " AND active = 1"
     with get_connection() as connection:
+        migrate_legacy_categories(connection)
         row = connection.execute(query, params).fetchone()
     if row is None:
         raise NotFoundError("Kategoria nuk u gjet.")
@@ -120,7 +129,7 @@ def get_category(category_id: int, include_inactive: bool = False) -> dict[str, 
 
 
 def create_category(payload: dict[str, Any]) -> dict[str, Any]:
-    name = str(payload.get("name", "")).strip()
+    name = normalize_category_name(payload.get("name", ""))
     if not name:
         raise ValidationError("Emri i kategorisë është i detyrueshëm.")
     with get_connection() as connection:
@@ -151,7 +160,7 @@ def create_category(payload: dict[str, Any]) -> dict[str, Any]:
 
 
 def update_category(category_id: int, payload: dict[str, Any]) -> dict[str, Any]:
-    name = str(payload.get("name", "")).strip()
+    name = normalize_category_name(payload.get("name", ""))
     if not name:
         raise ValidationError("Emri i kategorisë është i detyrueshëm.")
     active = 1 if payload.get("active", True) else 0
@@ -182,16 +191,22 @@ def update_category(category_id: int, payload: dict[str, Any]) -> dict[str, Any]
 
 def delete_category(category_id: int) -> dict[str, Any]:
     with get_connection() as connection:
-        active_products = connection.execute(
-            "SELECT COUNT(*) FROM products WHERE category_id = ? AND active = 1",
-            (category_id,),
-        ).fetchone()[0]
-        if active_products:
-            raise ConflictError("Kategoria ka produkte aktive. Fshini ose zhvendosni produktet më parë.")
+        category = connection.execute("SELECT id FROM categories WHERE id = ?", (category_id,)).fetchone()
+        if category is None:
+            raise NotFoundError("Kategoria nuk u gjet.")
         try:
+            connection.execute("DELETE FROM products WHERE category_id = ?", (category_id,))
             cursor = connection.execute("DELETE FROM categories WHERE id = ?", (category_id,))
             archived = False
         except sqlite3.IntegrityError:
+            connection.execute(
+                """
+                UPDATE products
+                SET active = 0, updated_at = datetime('now', 'localtime')
+                WHERE category_id = ?
+                """,
+                (category_id,),
+            )
             cursor = connection.execute(
                 """
                 UPDATE categories
@@ -228,6 +243,7 @@ def list_products(
         params.append(f"%{search.lower()}%")
     query += " ORDER BY c.sort_order, p.name"
     with get_connection() as connection:
+        migrate_legacy_categories(connection)
         return [row_to_product(row) for row in connection.execute(query, params)]
 
 
@@ -242,6 +258,7 @@ def get_product(product_id: int, include_inactive: bool = False) -> dict[str, An
     if not include_inactive:
         query += " AND p.active = 1 AND c.active = 1"
     with get_connection() as connection:
+        migrate_legacy_categories(connection)
         row = connection.execute(query, params).fetchone()
     if row is not None:
         return row_to_product(row)
