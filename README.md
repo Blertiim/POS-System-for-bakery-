@@ -21,6 +21,22 @@ PIN access:
 
 The SQLite database is created automatically at `data/bakery_pos.db` on first run.
 
+## Database Reliability
+
+The app uses a local SQLite database with versioned migrations. On startup it:
+
+- applies only missing migrations recorded in `schema_migrations`
+- creates an automatic backup before schema migrations
+- enables SQLite WAL mode, foreign keys, busy timeout, and integrity checks
+- keeps client data separate from seed data, so edited products/categories are not overwritten
+- stores backups in `data/backups/` by default, or in `BAKERY_POS_BACKUP_DIR`
+
+Important environment variables:
+
+- `BAKERY_POS_DB` sets the database file path
+- `BAKERY_POS_BACKUP_DIR` sets the migration backup folder
+- `BAKERY_POS_SKIP_DB_BACKUP=1` disables automatic migration backups
+
 ## Run Desktop Version
 
 Install Node dependencies once:
@@ -106,6 +122,7 @@ For online hosting, use a Docker-capable host such as Render, Railway, Fly.io, o
 - Port: `8000`, or let the provider set `PORT`
 - Persistent disk/volume mounted at `/data`
 - Database path: `BAKERY_POS_DB=/data/bakery_pos.db`
+- Optional backup path: `BAKERY_POS_BACKUP_DIR=/data/backups`
 
 The repository includes `render.yaml` for Render Blueprint deployment. It creates a Docker web service with a persistent disk mounted at `/data`, so SQLite writes to `/data/bakery_pos.db`.
 
@@ -118,7 +135,7 @@ Security note: do not expose the online admin panel publicly with simple demo PI
 - PIN login for cashier and admin roles.
 - Cashier order table with product, quantity, unit price, and total.
 - Quantity increase/decrease, delete selected item, clear order.
-- Four seeded bakery categories: Bukë, Pastiçeri, Pica, Pije.
+- Four seeded bakery categories: Bukë, Kifle, Pica, Pije.
 - 24 seeded products, 6 per category.
 - Product search by name.
 - Euro pricing and exact cent-based calculations.
@@ -135,7 +152,7 @@ Security note: do not expose the online admin panel publicly with simple demo PI
 .
 ├── app/
 │   ├── __init__.py
-│   ├── database.py       # SQLite schema and seed data
+│   ├── database.py       # SQLite schema, migrations, backups, health checks
 │   ├── repositories.py   # Product, category, sale, report logic
 │   └── server.py         # HTTP server, static files, JSON API
 ├── data/

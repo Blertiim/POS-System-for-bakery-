@@ -4,7 +4,7 @@ from typing import Any
 from uuid import uuid4
 import sqlite3
 
-from .database import get_connection, migrate_legacy_categories
+from .database import get_connection, normalize_category_name, repair_known_catalog_issues
 
 
 class AppError(Exception):
@@ -38,13 +38,6 @@ def euros_to_cents(value: Any, field_name: str = "amount") -> int:
 
 def cents_to_euros(cents: int) -> float:
     return cents / 100
-
-
-def normalize_category_name(value: Any) -> str:
-    name = str(value).strip()
-    if name in {"Pastiçeri", "Pasti?eri", "PastiÃ§eri"}:
-        return "Kifle"
-    return name
 
 
 def row_to_category(row: Any) -> dict[str, Any]:
@@ -111,7 +104,7 @@ def list_categories(include_inactive: bool = False) -> list[dict[str, Any]]:
         query += " WHERE active = 1"
     query += " ORDER BY sort_order, name"
     with get_connection() as connection:
-        migrate_legacy_categories(connection)
+        repair_known_catalog_issues(connection)
         return [row_to_category(row) for row in connection.execute(query, params)]
 
 
@@ -121,7 +114,7 @@ def get_category(category_id: int, include_inactive: bool = False) -> dict[str, 
     if not include_inactive:
         query += " AND active = 1"
     with get_connection() as connection:
-        migrate_legacy_categories(connection)
+        repair_known_catalog_issues(connection)
         row = connection.execute(query, params).fetchone()
     if row is None:
         raise NotFoundError("Kategoria nuk u gjet.")
@@ -243,7 +236,7 @@ def list_products(
         params.append(f"%{search.lower()}%")
     query += " ORDER BY c.sort_order, p.name"
     with get_connection() as connection:
-        migrate_legacy_categories(connection)
+        repair_known_catalog_issues(connection)
         return [row_to_product(row) for row in connection.execute(query, params)]
 
 
@@ -258,7 +251,7 @@ def get_product(product_id: int, include_inactive: bool = False) -> dict[str, An
     if not include_inactive:
         query += " AND p.active = 1 AND c.active = 1"
     with get_connection() as connection:
-        migrate_legacy_categories(connection)
+        repair_known_catalog_issues(connection)
         row = connection.execute(query, params).fetchone()
     if row is not None:
         return row_to_product(row)

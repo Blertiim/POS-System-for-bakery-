@@ -2,6 +2,9 @@ __pycache__/
 *.pyc
 data/*.db
 data/*.db-journal
+data/*.db-wal
+data/*.db-shm
+data/backups/*.db
 node_modules/
 build/
 dist-backend/

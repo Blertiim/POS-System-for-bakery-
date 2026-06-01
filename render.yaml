@@ -7,6 +7,8 @@ services:
     envVars:
       - key: BAKERY_POS_DB
         value: /data/bakery_pos.db
+      - key: BAKERY_POS_BACKUP_DIR
+        value: /data/backups
     disk:
       name: bakery-pos-data
       mountPath: /data
